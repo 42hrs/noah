@@ -8,7 +8,7 @@ from django.shortcuts import render
 from django.urls import reverse
 
 from ..constants import location
-from ..models import ItemModel, DonationCommitmentModel
+from ..models import ItemModel, DonationCommitmentModel, StatusModel
 
 
 class InitView(View):
@@ -16,7 +16,8 @@ class InitView(View):
         return HttpResponse(json.dumps({
             "states": list(location.STATES),
             "districts": location.MAPPING_STATE_DISTRICTS,
-            "items": list(ItemModel.objects.filter(crowd_sourced=False).values_list('name', flat=True))
+            "items": list(ItemModel.objects.filter(crowd_sourced=False).values_list('name', flat=True)),
+            "statuses": list(StatusModel.objects.all().values('status', 'label', 'code'))
         }))
 
 
@@ -48,7 +49,7 @@ class DonationView(View):
             "msg": "something went wrong",
             "status": 500
         }
-        
+
         try:
             ip = self.validate_input(request.body)
             items = ip.pop('items', [])
@@ -62,22 +63,22 @@ class DonationView(View):
                     raise Exception("Invalid item count")
                 elif int(item['count']) <= 0:
                     continue
-                
+
                 itemModel = self.getItem(item['name'])
                 donation.items.add(
                     itemModel.donationitemmodel_set.create(count=item["count"]))
-            
+
             if donation.items.count() == 0:
                 donation.delete()
                 resp["msg"] = "Please select at least 1 item to donate"
-            
+
             else:
                 resp['msg'] = "Your interest to donate has been recorded. Our volunteer will get in touch with you soon"
                 resp['status'] = 200
-        
+
         except Exception as e:
             resp["msg"] = str(e)
-        
+
         return HttpResponse(json.dumps(resp), status=resp['status'])
 
 
@@ -91,7 +92,7 @@ class ExportView(View):
     def parseDate(self, dateString):
         try:
             return date_parser(dateString).date()
-        
+
         except Exception as e:
             print(str(e))
             return None
@@ -101,7 +102,7 @@ class ExportView(View):
 
         if start_date:
             model = model.filter(created_at__gte=start_date)
-        
+
         if end_date:
             model = model.filter(created_at__lte=end_date)
 
@@ -135,7 +136,7 @@ class ExportView(View):
 
         book.close()
 
-    def get(self, request):       
+    def get(self, request):
         if request.user.is_authenticated is False or request.user.is_superuser is False:
             return HttpResponseRedirect("/admin/login/?next=%s" % reverse("donations-export"))
 

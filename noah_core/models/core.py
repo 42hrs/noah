@@ -10,7 +10,13 @@ from ..constants.choices import enumToChoices, \
 # having location fields
 
 class StatusModel(models.Model):
+    # Order has meaning. Lower numbers come first
+    # in the process.
     status = models.IntegerField()
+    # TODO make `code` and `label` non-nullable after proper
+    # data cleanup and migrations.
+    code = models.SlugField(blank=True)  # For use by clients
+    label = models.CharField(max_length=30, blank=True)
     current = models.BooleanField(default=False)
 
     updated_by = models.ForeignKey(UserProfileModel,
@@ -82,7 +88,16 @@ class DonationModel(models.Model):
     state = models.CharField(max_length=250)
     pincode = models.CharField(max_length=6)
 
+    # TODO Check M2M requirement and delete the
+    # field if not required.
     statuses = models.ManyToManyField(StatusModel)
+    # Sarath mentioned a Donation will only have one status
+    # and not multiple ones. Hence, creating a new
+    # ForeignKey.
+    status = models.ForeignKey(StatusModel,
+                               on_delete=models.SET_NULL,
+                               null=True,
+                               related_name="donations")
 
     request_fulfilled = models.ForeignKey(ReceiverRequestModel,
         on_delete=models.SET_NULL, null=True)
